@@ -1,0 +1,230 @@
+//---------------------------------------------------------------------
+// C-language program to satisfy Laboratory Experiment #5
+// Written by Tariq Ausaf
+// on 3.08.2018 
+// for Embedded Systems - Spring 2018 - Section 0013 
+//---------------------------------------------------------------------
+
+
+// Includes
+#include "msp430fg4618.h"
+#include "stdio.h"
+#include "stdlib.h"
+#include "string.h"
+
+// function prototypes
+void Init_UART(void);
+void OUTA_UART(unsigned char A); 
+unsigned char INCHAR_UART(void); 
+void Init_LCD(void);
+
+// written function prototypes
+char char2num(char a); 			// converts ASCII chars to int
+char num2char(int a)			// converts int to ASCII char for output
+
+// global variables
+unsigned char *LCDSeg = (unsigned char *) &LCDM3; 
+int LCD_SIZE = 11;
+
+int numbers[16] = { 			// programmed numericals in hex for the LCD
+	0x5F, 	// 0
+	0x06, 	// 1
+	0x6B, 	// 2
+	0x2F,	// 3
+	0x36,	// 4
+	0x3D,	// 5
+	0x7D, 	// 6
+	0x07,	// 7
+	0x7F,	// 8
+	0x3F,	// 9
+	0x77,	// 10 - A
+	0x7C,	// 11 - B
+	0x59,	// 12 - C
+	0x6E,	// 13 - D
+	0x79,	// 14 - E
+	0x71	// 15 - F
+}; 
+
+// main function
+int main(void) { 
+	WDTCTL = WDTPW + WDTHOLD; 	// withhold watchdog timer
+	Init_UART();				// initialize UART
+	Init_LCD();					// initialize LCD Display
+	
+	for(;;) { 
+		// read inputs from HyperTerminal
+		char digit1, digit2, operation, digit3, digit4;
+		unsigned int num1, num2, result; 
+		unsigned int carry; 	 // needed only for addition operation
+		unsigned int num3, num4; // needed only for multiplication operation
+		
+		// first numerical
+		OUTA_UART(0x30); // '0'
+		OUTA_UART(0x78); // 'x'
+		digit1 = INCHAR_UART(); 
+		OUTA_UART(digit1); 
+		digit2 = INCHAR_UART(); 
+		OUTA_UART(digit2);
+		
+		// operation code
+		OUTA_UART(0x20); // space
+		operation = INCHAR_UART(); 
+		
+		// second numerical
+		OUTA_UART(0x20); // space
+		OUTA_UART(0x30); // '0'
+		OUTA_UART(0x78); // 'x'
+		digit3 = INCHAR_UART(); 
+		OUTA_UART(digit3);
+		digit4 = INCHAR_UART(); 
+		OUTA_UART(digit4); 
+		
+		// newline and carraige return
+		OUTA_UART(0x0A); 
+		OUTA_UART(0x0D); 
+		
+		// converting the digits to workable vals
+		digit1 = char2num(digit1); 
+		digit2 = char2num(digit2); 
+		digit3 = char2num(digit3); 
+		digit4 = char2num(digit4); 
+		num1 = (int)digit1*16 + (int)digit2; // int val of first number
+		num2 = (int)digit3*16 + (int)digit4; // int val of second number
+		
+		// reserved spaces on LCD Display
+		LCDSeg[3] = 0x00; 
+		LCDSeg[2] = 0x00; 
+		
+		OUTA_UART(0x20); // space
+		OUTA_UART(0x3D); // equal
+		OUTA_UART(0x20); // space
+		
+		OUTA_UART(0x30); // '0'
+		OUTA_UART(0x78); // 'x'
+		
+		// addition operation realization
+		if (operation == 0x2B) { 
+			// perform addition operation
+			result = num1 + num2; 		// result in int val
+			
+			// convert the result to hex
+			carry = result / 256; 		// carry digit in hex
+			num1 = result / 16; 		// MSB in hex
+			num2 = result % 16; 		// LSB in hex
+			
+			if (carry == 1)				// if Carry is Set, subtract '1'
+				num1 = num1 - 16; 		// from the MSB in hex, i.e. 16
+			
+			// print the result of the LCD Display (in hex) 
+			LCDSeg[2] = numbers[carry]; // print carry to LCD
+			LCDSeg[1] = numbers[num1]; 	// print first digit to LCD
+			LCDSeg[0] = numbers[num2]; 	// print second digit to LCD
+			
+			// print the result to the UART Window (in hex)
+			OUTA_UART(num2char(carry));	// carry digit to UART
+			OUTA_UART(num2char(num1)); 	// MSB to UART
+			OUTA_UART(num2char(num2)); 	// LSB to UART
+		} 
+		
+		// subtraction operation realization
+		else if (operation == 0x2D) { 
+			// determine which number is greater and perform necessary
+			// subtraction method
+			if (num2 > num1) { 
+				LCDSeg[2] = 0x20; // '-' to LCD
+				result = num2 - num1; 
+			} else	result = num1 - num2; 
+			
+			// convert the result to hex
+			num1 = result / 16; 		// MSB in hex
+			num2 = result % 16; 		// LSB in hex
+			
+			// print the result of the LCD Display (in hex) 
+			LCDSeg[1] = numbers[num1]; 	// print first digit to LCD
+			LCDSeg[0] = numbers[num2]; 	// print second digit to LCD
+			
+			// print the result to the UART Window (in hex)
+			OUTA_UART(num2char(num1)); 	// MSB to UART
+			OUTA_UART(num2char(num1)); 	// LSB to UART
+		}
+		
+		// multiplication operation realization
+		else if (operation == 0x2A) { 
+			// perform multiplication operation
+			result = num1 * num2;
+			
+			// convert the result to hex
+			num4 = result / 4096 % 16; 	// MSB - division by 16^3
+			num3 = result / 256 % 16; 	// 16^2 
+			num2 = result / 16 % 16; 	// 16^1
+			num1 = result % 16; 		// LSB - 16^0
+			
+			// print the result to LCD Display 
+			LCDSeg[3] = numbers[num4];	// MSB
+			LCDSeg[2] = numbers[num3]; 
+			LCDSeg[1] = numbers[num2]; 
+			LCDSeg[0] = numbers[num1];  // LSB
+			
+			// print the result to the UART Window (in hex)
+			OUTA_UART(num2char(num4)); 	// MSB to UART
+			OUTA_UART(num2char(num3)); 	// MSB to UART
+			OUTA_UART(num2char(num2)); 	// MSB to UART
+			OUTA_UART(num2char(num1)); 	// LSB to UART
+		}
+		
+		// newline and carraige return before restarting
+		OUTA_UART(0x0A); // newline
+		OUTA_UART(0x0D); // carraige return
+		
+	}	// end of infinite for loop
+}
+
+char char2num(char a) { // converts ASCII Character to Int Char
+	char b = ' '; 		// buffer character
+	if (a > 0x30 && a <= 0x39) b = a - 0x30; 
+	if (a > 0x41 && a <= 0x46) b = a - 0x37; 
+	return b; 
+} 
+
+char num2char(int a) { 	// converts int num to ASCII Character 
+	char b = ' '; 		// buffer character
+	if (a >= 0 && a < 10) b = a + 0x30; 
+	if (a > 10 && a < 16) b = a + 0x37; 
+	return b; 
+} 
+
+//---------------------------------------------------------------------
+// Initialize the LCD system
+//---------------------------------------------------------------------
+void Init_LCD(void){						// initialize the LCD Dislay on the MSP430 Experimenter Board
+	int n;
+	for (n=0;n<LCD_SIZE;n++){
+		*(LCDSeg+n) = 0;
+	}
+	P5SEL = 0x1C;
+	LCDAVCTL0 = 0x00;
+	LCDAPCTL0 = 0x7E;
+	LCDACTL = 0x7d;
+}
+//---------------------------------------------------------------------
+// UART FUNCTIONS AND INIALIZATION
+//---------------------------------------------------------------------
+void OUTA_UART(unsigned char A){			// send character out via UART from character
+	do{
+	 }while ((IFG2&0x02)==0);
+	UCA0TXBUF =A;
+} unsigned char INCHAR_UART(void){			// intake character from UART into character
+	do{
+	}while ((IFG2&0x01)==0);
+	return (UCA0RXBUF);
+} void Init_UART(void){						// initalize the MSP430-FG4618 UART communication
+	P2SEL=0x30;
+	UCA0CTL0=0;
+	UCA0CTL1= 0x41;
+	UCA0BR1=0;
+	UCA0BR0=3;
+	UCA0MCTL=0x06;
+	UCA0STAT=0;
+	UCA0CTL1=0x40;
+	IE2=0; 
+}
