@@ -1,9 +1,8 @@
-// LCD Driver for the for MSP 43BX4XXX experimenter board using
-// Softbaugh LCD
-// Davies book pg. 259, 266
 #include "msp436fg4618.h"
 #include "stdio.h"
+
 void Init_LCD(void);
+
 // setup a pointer to the area of memory of the TMS439 that points to
 // the segments
 // of the softbaugh LCD LCDM3 = the starting address
@@ -17,9 +16,12 @@ void Init_LCD(void);
 // the special characters
 // such as battery status, antenna, f1-f4, etc.
 // there are 7 seven segment displays
+
 unsigned char *LCDSeg = (unsigned char *) &LCDM3;
+
 // there are 11 locations that are needed for the softbaugh LCD
 // ony 7 used for the seven segment displays
+
 int LCD_SIZE=11;
 
 int main(void){
