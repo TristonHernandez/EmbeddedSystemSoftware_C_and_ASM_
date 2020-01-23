@@ -1,4 +1,4 @@
-# EmbeddedSystemSoftware_C_and_ASM_
+# EmbeddedSystemSoftware_C++_and_ASM_
 Projects from Embedded Systems(EEL 4742) & their details
 
 Project Details:
