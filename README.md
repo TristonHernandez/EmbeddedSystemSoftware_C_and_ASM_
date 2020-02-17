@@ -1,6 +1,8 @@
 # EmbeddedSystemSoftware_C++_and_ASM_
 Projects from Embedded Systems(EEL 4742) & their details
 
+All these assignments were done in C, C++ and Assembly
+
 Project Details:
 
 - Both the C code and ASM has the same behavior amonsgt their respective project
